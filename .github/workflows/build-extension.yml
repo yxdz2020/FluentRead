@@ -1,10 +1,14 @@
 name: Build and Release Extension
 
-# 当创建并推送一个新的 tag 时触发
+# 控制工作流程的触发时机
 on:
+  # 1. 当创建并推送一个新的 tag 时触发 (用于正式发布)
   push:
     tags:
       - 'v*' # 匹配所有以 "v" 开头的 tag，例如 v1.0.0, v0.5.2-beta
+
+  # 2. 增加手动触发选项
+  workflow_dispatch:
 
 jobs:
   build-and-release:
@@ -44,7 +48,6 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           # files 字段指定了要上传的文件路径
-          # a/* 匹配所有 zip 和 xpi 文件
           files: |
             ./*.zip
             ./*.xpi
