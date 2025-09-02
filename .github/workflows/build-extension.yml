@@ -1,58 +1,63 @@
-name: Build and Release Extension
+name: 构建并发布插件
 
 on:
+  # 1. 通过推送 v* 标签触发 (用于正式发布)
   push:
     tags:
       - 'v*'
+
+  # 2. 手动触发
   workflow_dispatch:
 
 jobs:
   build-and-release:
     runs-on: ubuntu-latest
+
     permissions:
-      contents: write
+      contents: write # 授予工作流程写权限，以便创建 Release
 
     steps:
-      - name: Checkout repository
+      - name: 检出代码
         uses: actions/checkout@v4
 
-      - name: Set up PNPM
+      - name: 设置 PNPM
         uses: pnpm/action-setup@v3
         with:
           version: 9
 
-      - name: Set up Node.js
+      - name: 设置 Node.js 环境
         uses: actions/setup-node@v4
         with:
           node-version: '20'
           cache: 'pnpm'
 
-      - name: Install dependencies
+      - name: 安装依赖
         run: pnpm install
 
-      - name: Build and Zip Extension
+      - name: 构建并打包插件
         run: pnpm zip
 
-      # 新增的调试步骤：递归列出所有文件
-      # 这样如果再出错，您可以在日志中看到文件到底生成在了哪里
-      - name: List files in the workspace
+      # 调试步骤：列出工作区中的所有文件，方便排查问题
+      - name: 列出文件
         run: ls -R
 
       # 如果是通过推送标签触发，则创建 Release
-      - name: Create GitHub Release (on tag push)
+      - name: 创建 GitHub Release (标签推送时)
         if: startsWith(github.ref, 'refs/tags/')
         uses: softprops/action-gh-release@v2
         with:
+          # 修正路径：在 .output 文件夹内查找文件
           files: |
-            *.zip
-            *.xpi
+            ./.output/*.zip
+            ./.output/*.xpi
 
       # 如果是手动触发，则上传为 Artifact
-      - name: Upload Artifacts (on manual run)
+      - name: 上传构建产物 (手动运行时)
         if: github.event_name == 'workflow_dispatch'
         uses: actions/upload-artifact@v4
         with:
           name: extension-builds
+          # 修正路径：在 .output 文件夹内查找文件
           path: |
-            *.zip
-            *.xpi
+            ./.output/*.zip
+            ./.output/*.xpi
