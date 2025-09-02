@@ -1,54 +1,50 @@
-name: Build Extension
+name: Build and Release Extension
 
-# 控制工作流程的触发时机
+# 当创建并推送一个新的 tag 时触发
 on:
   push:
-    branches: [ "main" ] # 当 main 分支有新的 push 时触发
-  pull_request:
-    branches: [ "main" ] # 当有 pull request 合并到 main 分支时触发
+    tags:
+      - 'v*' # 匹配所有以 "v" 开头的 tag，例如 v1.0.0, v0.5.2-beta
 
 jobs:
-  build:
-    runs-on: ubuntu-latest # 使用最新的 Ubuntu 运行环境
+  build-and-release:
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: write # 授予工作流程写权限，以便创建 Release
 
     steps:
       # 第一步：检出代码
-      # 使用 actions/checkout@v4 拉取你的仓库代码
       - name: Checkout repository
         uses: actions/checkout@v4
 
       # 第二步：设置 PNPM
-      # 因为项目使用 pnpm，所以需要设置 pnpm 环境
       - name: Set up PNPM
         uses: pnpm/action-setup@v3
         with:
-          version: 9 # 指定 pnpm 版本，与 package.json 中一致
+          version: 9
 
       # 第三步：设置 Node.js 环境
-      # 指定 Node.js 版本，建议使用项目开发时所用的版本
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
           node-version: '20'
-          cache: 'pnpm' # 为 pnpm 设置缓存，加快依赖安装速度
+          cache: 'pnpm'
 
       # 第四步：安装依赖
-      # 运行 pnpm install 来安装 package.json 中定义的所有依赖
       - name: Install dependencies
         run: pnpm install
 
       # 第五步：构建并打包插件
-      # 运行 package.json 中的 "zip" 脚本来构建和打包
       - name: Build and Zip Extension
         run: pnpm zip
 
-      # 第六步：上传构建产物
-      # 使用 actions/upload-artifact@v4 将打包好的 zip 文件作为产物上传
-      # 这样你就可以在 Actions 页面下载它们
-      - name: Upload Artifacts
-        uses: actions/upload-artifact@v4
+      # 第六步：创建 GitHub Release 并上传产物
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
         with:
-          name: extension-builds
-          path: |
+          # files 字段指定了要上传的文件路径
+          # a/* 匹配所有 zip 和 xpi 文件
+          files: |
             ./*.zip
             ./*.xpi
