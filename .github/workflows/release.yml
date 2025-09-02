@@ -40,8 +40,13 @@ jobs:
 
       - name: Get project name
         id: get_project_name
+        run: echo "PROJECT_NAME=$(node -p "require('./package.json').name")" >> $GITHUB_ENV
+      
+      - name: Find asset paths
+        id: find_assets
         run: |
-          echo "PROJECT_NAME=$(node -p "require('./package.json').name")" >> $GITHUB_ENV
+          echo "chromium_path=$(find ./.output -name '*chrome*.zip')" >> $GITHUB_OUTPUT
+          echo "firefox_path=$(find ./.output -name '*firefox*.zip')" >> $GITHUB_OUTPUT
 
       - name: Create Release
         id: create_release
@@ -60,7 +65,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: ./.output/fluent-read-chrome-mv3.zip
+          asset_path: ${{ steps.find_assets.outputs.chromium_path }}
           asset_name: ${{ env.PROJECT_NAME }}-chromium-${{ github.ref_name }}.zip
           asset_content_type: application/zip
 
@@ -70,6 +75,6 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: ./.output/fluent-read-firefox-mv2.zip
+          asset_path: ${{ steps.find_assets.outputs.firefox_path }}
           asset_name: ${{ env.PROJECT_NAME }}-firefox-${{ github.ref_name }}.zip
           asset_content_type: application/zip
