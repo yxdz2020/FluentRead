@@ -1,0 +1,75 @@
+name: Release Extension
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  build-and-release:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '18'
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v2
+        with:
+          version: 8
+
+      - name: Install dependencies
+        run: pnpm install
+
+      - name: Build for Chromium (Chrome, Edge)
+        run: pnpm build
+
+      - name: Zip for Chromium
+        run: pnpm zip
+
+      - name: Build for Firefox
+        run: pnpm build:firefox
+
+      - name: Zip for Firefox
+        run: pnpm zip:firefox
+
+      - name: Get project name and version
+        id: get_project_info
+        run: |
+          echo "PROJECT_NAME=$(node -p "require('./package.json').name")" >> $GITHUB_ENV
+          echo "PROJECT_VERSION=$(node -p "require('./package.json').version")" >> $GITHUB_ENV
+
+      - name: Create Release
+        id: create_release
+        uses: actions/create-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: ${{ github.ref }}
+          release_name: Release ${{ env.PROJECT_NAME }} v${{ env.PROJECT_VERSION }}
+          draft: false
+          prerelease: false
+
+      - name: Upload Chromium extension
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: ./.output/${{ env.PROJECT_NAME }}-chromium-v${{ env.PROJECT_VERSION }}.zip
+          asset_name: ${{ env.PROJECT_NAME }}-chromium-v${{ env.PROJECT_VERSION }}.zip
+          asset_content_type: application/zip
+
+      - name: Upload Firefox extension
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: ./.output/${{ env.PROJECT_NAME }}-firefox-v${{ env.PROJECT_VERSION }}.zip
+          asset_name: ${{ env.PROJECT_NAME }}-firefox-v${{ env.PROJECT_VERSION }}.zip
+          asset_content_type: application/zip
