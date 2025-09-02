@@ -47,8 +47,11 @@ jobs:
         run: |
           CHROME_ASSET_NAME="${{ env.PROJECT_NAME }}-chrome-edge-${{ github.ref_name }}.zip"
           FIREFOX_ASSET_NAME="${{ env.PROJECT_NAME }}-firefox-${{ github.ref_name }}.zip"
-          mv ./.output/fluent-read-chrome-mv3.zip ./.output/$CHROME_ASSET_NAME
-          mv ./.output/fluent-read-firefox-mv2.zip ./.output/$FIREFOX_ASSET_NAME
+          
+          # 使用通配符(*)查找生成的zip文件，使其更加健壮
+          mv ./.output/*chrome*.zip ./.output/$CHROME_ASSET_NAME
+          mv ./.output/*firefox*.zip ./.output/$FIREFOX_ASSET_NAME
+          
           echo "chromium_path=./.output/$CHROME_ASSET_NAME" >> $GITHUB_OUTPUT
           echo "firefox_path=./.output/$FIREFOX_ASSET_NAME" >> $GITHUB_OUTPUT
 
