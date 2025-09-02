@@ -1,20 +1,16 @@
 name: 构建并发布插件
 
 on:
-  # 1. 通过推送 v* 标签触发 (用于正式发布)
   push:
     tags:
-      - 'v*'
-
-  # 2. 手动触发
-  workflow_dispatch:
+      - 'v*' # 仅在推送 v* 格式的 Git 标签时触发
+  workflow_dispatch: # 允许手动触发
 
 jobs:
   build-and-release:
     runs-on: ubuntu-latest
-
     permissions:
-      contents: write # 授予工作流程写权限，以便创建 Release
+      contents: write # 必须授予写权限才能创建和修改 Release
 
     steps:
       - name: 检出代码
@@ -37,27 +33,21 @@ jobs:
       - name: 构建并打包插件
         run: pnpm zip
 
-      # 调试步骤：列出工作区中的所有文件，方便排查问题
-      - name: 列出文件
-        run: ls -R
+      # 调试步骤：列出 .output 目录下的所有文件
+      # 这能帮助我们确认 zip 文件是否已正确生成
+      - name: 查看构建产物
+        run: ls -R .output
 
-      # 如果是通过推送标签触发，则创建 Release
-      - name: 创建 GitHub Release (标签推送时)
-        if: startsWith(github.ref, 'refs/tags/')
+      # 创建或更新 GitHub Release
+      - name: 发布到 Releases
         uses: softprops/action-gh-release@v2
         with:
-          # 修正路径：在 .output 文件夹内查找文件
+          # `body_path` 可以指向一个文件，用于填充 Release 的描述信息
+          # `generate_release_notes: true` 会自动生成发布日志
+          generate_release_notes: true
+          # `overwrite: true` 允许覆盖已存在的同名 Release
+          # `fail_on_unmatched_files: true` 如果找不到文件则报错
+          # `files` 字段使用通配符来匹配所有生成的 zip 和 xpi 文件
           files: |
-            ./.output/*.zip
-            ./.output/*.xpi
-
-      # 如果是手动触发，则上传为 Artifact
-      - name: 上传构建产物 (手动运行时)
-        if: github.event_name == 'workflow_dispatch'
-        uses: actions/upload-artifact@v4
-        with:
-          name: extension-builds
-          # 修正路径：在 .output 文件夹内查找文件
-          path: |
             ./.output/*.zip
             ./.output/*.xpi
