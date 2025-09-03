@@ -1,6 +1,5 @@
 name: Create Tag and Release Extension
 
-# 当 package.json 有更新并推送到 main 分支时触发
 on:
   workflow_dispatch:
   push:
@@ -9,8 +8,6 @@ on:
     paths:
       - 'package.json'
 
-# 新增：并发控制
-# 如果有新的工作流被触发，会自动取消还在进行中的旧工作流
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
@@ -20,29 +17,28 @@ jobs:
   tag-release:
     runs-on: ubuntu-latest
     permissions:
-      contents: write # 赋予 job 写权限以推送标签
+      contents: write
     outputs:
       tag_name: ${{ steps.get_version.outputs.VERSION }}
       new_tag_created: ${{ steps.check_tag.outputs.created }}
 
     steps:
       - name: Checkout
-        # 优化：使用最新的 v4 版本
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
-      - name: Set up Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '18'
-          # 新增：缓存 pnpm 依赖
-          cache: 'pnpm'
-
+      # 修正：将 pnpm 的安装步骤提前
       - name: Set up pnpm
         uses: pnpm/action-setup@v3
         with:
           version: 8
+          
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'pnpm'
 
       - name: Install dependencies
         run: pnpm install
@@ -64,7 +60,7 @@ jobs:
             echo "Tag ${{ env.VERSION }} does not exist. Proceeding to create it."
             echo "created=true" >> $GITHUB_OUTPUT
           fi
-
+          
       - name: Configure Git
         if: steps.check_tag.outputs.created == 'true'
         run: |
@@ -74,7 +70,6 @@ jobs:
       - name: Create and push tag
         if: steps.check_tag.outputs.created == 'true'
         run: |
-          # 优化：在标签信息中包含触发本次发布的 commit 信息
           git tag -a ${{ env.VERSION }} -m "Release version ${{ env.VERSION }}"
           git push origin ${{ env.VERSION }}
           echo "Successfully created and pushed tag ${{ env.VERSION }}"
@@ -82,27 +77,25 @@ jobs:
   # === 任务 2: 构建并发布 Release ===
   build-and-release:
     needs: tag-release
-    # 优化：使用更简洁的 if 条件
     if: needs.tag-release.outputs.new_tag_created == 'true'
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        # 优化：使用最新的 v4 版本
         uses: actions/checkout@v4
         with:
           ref: ${{ needs.tag-release.outputs.tag_name }}
+
+      # 修正：将 pnpm 的安装步骤提前
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v3
+        with:
+          version: 8
 
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
           node-version: '18'
-          # 新增：缓存 pnpm 依赖
           cache: 'pnpm'
-
-      - name: Set up pnpm
-        uses: pnpm/action-setup@v3
-        with:
-          version: 8
 
       - name: Install dependencies
         run: pnpm install
@@ -128,8 +121,10 @@ jobs:
         run: |
           CHROME_ASSET_NAME="${{ env.PROJECT_NAME }}-chrome-edge-${{ needs.tag-release.outputs.tag_name }}.zip"
           FIREFOX_ASSET_NAME="${{ env.PROJECT_NAME }}-firefox-${{ needs.tag-release.outputs.tag_name }}.zip"
+          
           mv ./.output/*chrome*.zip ./.output/$CHROME_ASSET_NAME
           mv ./.output/*firefox*.zip ./.output/$FIREFOX_ASSET_NAME
+          
           echo "chromium_path=./.output/$CHROME_ASSET_NAME" >> $GITHUB_OUTPUT
           echo "firefox_path=./.output/$FIREFOX_ASSET_NAME" >> $GITHUB_OUTPUT
 
@@ -137,7 +132,6 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           name: FluentRead ${{ needs.tag-release.outputs.tag_name }}
-          # 新增：自动生成发布说明
           generate_release_notes: true
           files: |
             ${{ steps.prepare_assets.outputs.chromium_path }}
